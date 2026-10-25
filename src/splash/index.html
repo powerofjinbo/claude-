@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'">
+<title>Claude</title>
+<link rel="stylesheet" href="splash.css">
+</head>
+<body>
+<div id="frame" class="loading">
+  <div class="bg"><div id="bgimg" class="crop"></div></div>
+  <canvas id="dust"></canvas>
+
+  <video id="video" playsinline hidden></video>
+
+  <div id="stage">
+    <!-- A：星芒 -->
+    <div id="logo" class="scene">
+      <svg id="spark" viewBox="-100 -100 200 200" aria-hidden="true"></svg>
+    </div>
+
+    <!-- B：表情集 -->
+    <div id="strip" class="scene">
+      <div class="tag"></div>
+      <div class="cards"></div>
+    </div>
+
+    <!-- C：全身设定 -->
+    <div id="views" class="scene">
+      <div class="tag"></div>
+      <div class="panels"></div>
+    </div>
+
+    <!-- D：主视觉 -->
+    <div id="hero" class="scene">
+      <div id="heroBg" class="crop"></div>
+      <div id="portrait" class="crop"></div>
+      <div class="copy">
+        <div id="tag" class="hero-tag"></div>
+        <div id="quote" class="quote"></div>
+        <div id="title" class="title"><span class="title-text"></span><svg class="mini-spark" viewBox="-100 -100 200 200" aria-hidden="true"></svg></div>
+        <div id="subtitle" class="subtitle"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="leak"></div>
+  <div class="flash"></div>
+  <div class="vignette"></div>
+
+  <div class="hud">
+    <div class="bar"><div class="fill"></div></div>
+    <div class="hint"><span class="dot"></span><span class="hint-text"></span></div>
+    <div class="skip"><span class="glyph">▶</span><span class="skip-text"></span></div>
+  </div>
+</div>
+<script src="splash.js"></script>
+</body>
+</html>

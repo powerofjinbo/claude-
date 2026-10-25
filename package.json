@@ -1,0 +1,19 @@
+{
+  "name": "claude-boot-splash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Claude Desktop 开机动画：打开 Claude 时先放一段「Claude 大小姐」的启动动画，窗口就绪后淡出。",
+  "main": "src/main.js",
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
+    "start": "electron .",
+    "preview": "electron . --preview",
+    "test": "node --test",
+    "e2e": "node scripts/e2e.mjs",
+    "render-preview": "node scripts/render-preview.mjs"
+  },
+  "dependencies": {
+    "electron": "44.9.3"
+  }
+}

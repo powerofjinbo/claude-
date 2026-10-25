@@ -1,0 +1,324 @@
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('../../assets/fonts/cormorant-garamond-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: url('../../assets/fonts/cormorant-garamond-500-italic.woff2') format('woff2');
+  font-weight: 500;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Great Vibes';
+  src: url('../../assets/fonts/great-vibes.woff2') format('woff2');
+  font-display: block;
+}
+
+:root {
+  --orange: #d97757;
+  --gold: #e8b98a;
+  --cream: #f6e7d8;
+  --ink: #120a06;
+  --inset: 0px;
+  --radius: 22px;
+  --fade: 700ms;
+  --serif: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  cursor: pointer;
+  font-family: var(--serif);
+  font-weight: 500;
+}
+
+#frame {
+  position: absolute;
+  inset: var(--inset);
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--ink);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(232, 185, 138, 0.22);
+  transition: opacity var(--fade) ease, transform var(--fade) ease;
+}
+#frame.fullscreen { border-radius: 0; box-shadow: none; }
+#frame.loading { opacity: 0; }
+#frame.leaving { opacity: 0; transform: scale(1.025); }
+#frame.fullscreen.leaving { transform: none; }
+
+/* ---------- 背景层（按窗口铺满，不跟舞台缩放） ---------- */
+.bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 45%, #3a1d10 0%, #1d0f08 55%, #0b0503 100%);
+}
+#bgimg {
+  position: absolute;
+  left: -6%;
+  top: -6%;
+  opacity: 0;
+  filter: blur(26px) saturate(1.2) brightness(0.55);
+}
+#dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* ---------- 舞台：1600×900 逻辑坐标，整体等比缩放 ---------- */
+#stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1600px;
+  height: 900px;
+  transform-origin: 0 0;
+}
+.scene { position: absolute; inset: 0; opacity: 0; }
+.crop { background-repeat: no-repeat; }
+
+.tag {
+  position: absolute;
+  left: 80px;
+  top: 64px;
+  color: var(--gold);
+  font-size: 24px;
+  letter-spacing: 0.4em;
+  opacity: 0.85;
+}
+.tag::before {
+  content: '';
+  display: inline-block;
+  width: 46px;
+  height: 1px;
+  margin-right: 16px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+
+/* A：星芒 */
+#logo { display: grid; place-items: center; }
+#spark {
+  width: 300px;
+  height: 300px;
+  overflow: visible;
+  filter: drop-shadow(0 0 18px rgba(217, 119, 87, 0.85)) drop-shadow(0 0 48px rgba(255, 170, 110, 0.45));
+}
+#spark line, .mini-spark line { stroke: var(--orange); stroke-linecap: round; }
+
+/* B：表情卡片 */
+.cards {
+  position: absolute;
+  left: 0;
+  top: 262px;
+  display: flex;
+  gap: 28px;
+  padding-left: 110px;
+}
+.card { position: relative; width: 210px; }
+.card .crop {
+  width: 210px;
+  height: 318px;
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(232, 185, 138, 0.55);
+}
+.card .label, .panel .label {
+  margin-top: 22px;
+  text-align: center;
+  color: var(--cream);
+  font-size: 30px;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 14px rgba(217, 119, 87, 0.7);
+}
+
+/* C：三视图 */
+.panels {
+  position: absolute;
+  left: 50%;
+  top: 112px;
+  display: flex;
+  align-items: flex-end;
+  gap: 46px;
+  transform: translateX(-50%);
+}
+.panel .crop {
+  height: 640px;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 185, 138, 0.5);
+}
+.panel .label { font-size: 30px; margin-top: 16px; }
+
+/* 扫光 */
+.sweep {
+  position: absolute;
+  top: -20%;
+  left: 0;
+  width: 220px;
+  height: 140%;
+  background: linear-gradient(90deg, transparent, rgba(255, 236, 214, 0.35), transparent);
+  transform: rotate(14deg);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* D：主视觉 */
+#heroBg { position: absolute; inset: -40px; filter: blur(9px) brightness(0.38) saturate(1.15); }
+#portrait {
+  position: absolute;
+  right: 40px;
+  top: 0;
+  width: 560px;
+  height: 900px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 22%, #000 88%, transparent 100%),
+    linear-gradient(180deg, #000 78%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+.copy { position: absolute; left: 130px; top: 210px; width: 900px; }
+.hero-tag {
+  color: var(--gold);
+  font-size: 26px;
+  letter-spacing: 0.42em;
+}
+.hero-tag::before {
+  content: '';
+  display: inline-block;
+  width: 60px;
+  height: 1px;
+  margin-right: 18px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+.quote {
+  margin-top: 44px;
+  min-height: 64px;
+  color: var(--cream);
+  font-size: 76px;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+.quote span { display: inline-block; white-space: pre; }
+.title {
+  position: relative;
+  display: inline-block;
+  margin-top: 26px;
+  padding: 0 40px 0 6px;
+  font-family: 'Great Vibes', 'Segoe Script', cursive;
+  font-size: 210px;
+  line-height: 1.05;
+}
+.title-text {
+  display: inline-block;
+  padding: 0 0.3em 0.1em 0.2em;
+  background: linear-gradient(100deg, #ffe2c2 0%, #f3a676 40%, var(--orange) 70%, #ffd6ad 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 22px rgba(217, 119, 87, 0.75));
+}
+.mini-spark {
+  position: absolute;
+  right: -8px;
+  top: 34px;
+  width: 64px;
+  height: 64px;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px rgba(217, 119, 87, 0.9));
+}
+.subtitle {
+  margin-top: 6px;
+  padding-left: 10px;
+  color: #ebcdb2;
+  font-size: 34px;
+  font-style: italic;
+  letter-spacing: 0.12em;
+}
+
+/* 自定义视频 */
+#video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+/* ---------- 光效 ---------- */
+.leak {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255, 140, 70, 0.55), transparent 45%),
+    radial-gradient(circle at 85% 70%, rgba(255, 200, 140, 0.45), transparent 40%);
+}
+.flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 50%, #fff6ea 0%, rgba(255, 190, 140, 0.85) 35%, rgba(217, 119, 87, 0) 75%);
+}
+.vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 85% 80% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* ---------- HUD ---------- */
+.hud { position: absolute; inset: 0; pointer-events: none; color: var(--cream); }
+.bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, rgba(217, 119, 87, 0.4), var(--orange) 70%, #ffd2a8);
+  box-shadow: 0 0 10px rgba(217, 119, 87, 0.9);
+}
+.hint, .skip {
+  position: absolute;
+  bottom: 16px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  opacity: 0.78;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  font-family: 'Segoe UI', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+}
+.hint { left: 22px; display: flex; align-items: center; gap: 9px; }
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 0 0 8px var(--orange);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.hud.ready .dot { background: #9fe0a5; box-shadow: 0 0 8px #9fe0a5; animation: none; }
+.hud.missing .dot { background: #ff8a7a; box-shadow: 0 0 8px #ff8a7a; animation: none; }
+.skip { right: 22px; animation: breathe 2.4s ease-in-out infinite; }
+.skip .glyph { margin-right: 8px; font-size: 11px; color: var(--orange); }
+
+@keyframes pulse { 50% { opacity: 0.3; transform: scale(0.7); } }
+@keyframes breathe { 50% { opacity: 0.45; } }
