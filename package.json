@@ -6,6 +6,7 @@
   "main": "src/main.js",
   "license": "MIT",
   "scripts": {
+    "postinstall": "node node_modules/electron/install.js",
     "start": "electron .",
     "preview": "electron . --preview",
     "test": "node --test",
