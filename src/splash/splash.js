@@ -695,7 +695,9 @@
       }, { once: true })
       v.addEventListener('error', function () { resolve(false) }, { once: true })
       v.addEventListener('ended', finishAnimation)
-      setTimeout(function () { resolve(false) }, 4000)
+      // 冷启动后第一次打开时解码器初始化可能很慢（CI 上见过 >4s）：别轻易退回 CSS 动画，
+      // 只有真的报错或者 15 秒都没载入才退。窗口在载入完成前不显示，主进程另有兜底超时
+      setTimeout(function () { resolve(false) }, 15000)
       v.load()
     }).then(function (ok) {
       if (!ok) return false

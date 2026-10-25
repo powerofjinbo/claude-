@@ -169,6 +169,11 @@ function main() {
   })
   ipcMain.on('splash:done', (_e, reason) => quit('done:' + reason))
 
+  // 渲染进程一直没准备好（素材坏了、卡死）：别让一个看不见的进程挂着
+  setTimeout(() => {
+    if (!shown) quit('never-ready')
+  }, 25000).unref()
+
   win.webContents.on('console-message', (e, _level, message) => log('renderer:', e.message ?? message))
   win.webContents.on('render-process-gone', (_e, d) => quit('renderer-gone:' + d.reason))
   win.loadFile(path.join(__dirname, 'splash', 'index.html'))
