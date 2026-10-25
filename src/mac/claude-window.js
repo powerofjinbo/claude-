@@ -4,7 +4,7 @@
 //
 // Every <interval> ms reads CGWindowListCopyWindowInfo (front-to-back order; owner names and
 // bounds need no Accessibility / Screen Recording permission) and, when something changed,
-// prints one JSON line (console.log goes to stderr in osascript):
+// prints one JSON line (console.log goes to stderr in osascript; repeated every 2 s as a heartbeat):
 //   {"visible":true,"front":true,"x":..,"y":..,"w":..,"h":..}   Claude's largest normal window
 //   {"visible":false}                                           no Claude window on screen
 // "front" means Claude's window is the topmost normal window, i.e. nothing covers it.
@@ -40,11 +40,16 @@ function run(argv) {
   var interval = Math.max(30, Number(argv[1]) || 80) / 1000
   var once = argv[2] === 'once'
   var last = ''
+  var lastAt = 0
   while (true) {
     var line = JSON.stringify(snapshot(name))
-    if (line !== last) {
+    var now = Date.now()
+    // Also repeat the line every 2 s: if the overlay process died without killing us, that
+    // write hits a closed pipe (SIGPIPE) and this script exits instead of polling forever.
+    if (line !== last || now - lastAt > 2000) {
       console.log(line)
       last = line
+      lastAt = now
     }
     if (once) return ''
     delay(interval)
