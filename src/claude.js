@@ -10,7 +10,8 @@
  *   window             窗口出来了
  *
  * Windows 上所有细节都在 src/win/helper.ps1 里（一个常驻的 PowerShell，避免每 200ms 起一次进程）。
- * macOS / 其他平台是尽力而为：只看进程，进程出现后稍等一下就当窗口出来了。
+ * macOS：open -a 启动，pgrep 看进程，CGWindowList 看窗口（src/mac/window-count.js）。
+ * Linux（只有测试用得到）：只看进程，进程出现后稍等一下就当窗口出来了。
  */
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
@@ -55,12 +56,46 @@ function startWindows({ cfg, launch, onEvent }) {
   }
 }
 
-/** macOS / Linux：轮询进程名。 */
+/** macOS 上 cfg.claude.target 怎么启动：应用名 / .app 路径走 open -a，可执行文件路径直接跑（测试用）。 */
+function macLaunchCommand(target) {
+  const t = target || 'Claude'
+  if (t.endsWith('.app') || !t.includes('/')) return ['open', ['-a', t]]
+  return [t, []]
+}
+
+/**
+ * macOS / Linux：轮询进程名。
+ * macOS 上再用 src/mac/window-count.js（CGWindowList，不需要辅助功能权限）确认窗口真的出来了；
+ * 一直数不到窗口（比如测试里的假 Claude 根本没有窗口）就在 windowFallbackMs 之后当它出来了。
+ * Linux 只看进程，进程出现后 1.5 秒当窗口出来了。
+ */
 function startPosix({ cfg, launch, onEvent, platform }) {
   const name = cfg.claude.processName || 'claude'
   let timer = null
   let stopped = false
   const pgrep = (cb) => execFile('pgrep', ['-i', '-x', name], (err, out) => cb(!err && String(out).trim() !== ''))
+  const probe = path.join(__dirname, 'mac', 'window-count.js')
+  const countWindows = (cb) =>
+    execFile('osascript', ['-l', 'JavaScript', probe, name], { timeout: 3000 }, (err, out) => cb(err ? 0 : Number(String(out).trim()) || 0))
+
+  const windowReady = () => !stopped && onEvent({ type: 'window', pid: 0 })
+
+  const waitWindow = () => {
+    if (platform !== 'darwin') {
+      timer = setTimeout(windowReady, 1500)
+      return
+    }
+    const deadline = Date.now() + (cfg.claude.windowFallbackMs || 8000)
+    const poll = () => {
+      if (stopped) return
+      countWindows((n) => {
+        if (stopped) return
+        if (n > 0 || Date.now() >= deadline) return windowReady()
+        timer = setTimeout(poll, 300)
+      })
+    }
+    poll()
+  }
 
   const watch = () => {
     let sawProc = false
@@ -71,9 +106,7 @@ function startPosix({ cfg, launch, onEvent, platform }) {
         if (alive && !sawProc) {
           sawProc = true
           onEvent({ type: 'proc', pid: 0 })
-          // 不去查窗口（macOS 要辅助功能权限），进程起来后给它一点时间建窗口
-          timer = setTimeout(() => !stopped && onEvent({ type: 'window', pid: 0 }), 1500)
-          return
+          return waitWindow()
         }
         if (!sawProc) timer = setTimeout(tick, 250)
       })
@@ -87,10 +120,18 @@ function startPosix({ cfg, launch, onEvent, platform }) {
   } else {
     pgrep((running) => {
       const target = cfg.claude.target
-      const cmd = platform === 'darwin' ? ['open', ['-a', target || 'Claude']] : target ? [target, []] : null
+      const cmd = platform === 'darwin' ? macLaunchCommand(target) : target ? [target, []] : null
       if (!cmd) return onEvent({ type: 'missing', reason: 'not-found' })
       const child = spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore' })
-      child.on('error', (err) => onEvent({ type: 'missing', reason: err.message }))
+      let failed = false
+      child.on('error', (err) => {
+        failed = true
+        onEvent({ type: 'missing', reason: err.message })
+      })
+      // open -a 找不到应用时会以非 0 退出
+      child.on('exit', (code) => {
+        if (code && cmd[0] === 'open' && !failed) onEvent({ type: 'missing', reason: 'open exited ' + code })
+      })
       child.on('spawn', () => {
         child.unref()
         if (running) return onEvent({ type: 'already' })
@@ -101,7 +142,9 @@ function startPosix({ cfg, launch, onEvent, platform }) {
   }
   return {
     focus() {
-      if (platform === 'darwin') spawn('open', ['-a', cfg.claude.target || 'Claude'], { stdio: 'ignore' }).on('error', () => {})
+      if (platform !== 'darwin') return
+      const cmd = macLaunchCommand(cfg.claude.target)
+      if (cmd[0] === 'open') spawn(cmd[0], cmd[1], { stdio: 'ignore' }).on('error', () => {})
     },
     stop() {
       stopped = true
@@ -120,4 +163,4 @@ function startClaude(opts) {
   return startPosix({ ...opts, platform })
 }
 
-module.exports = { startClaude, parseHelperLine }
+module.exports = { startClaude, parseHelperLine, macLaunchCommand }

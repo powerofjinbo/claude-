@@ -84,6 +84,9 @@ function main() {
   const mode = args.preview ? 'preview' : args.attach ? 'attach' : 'launch'
   log('mode=' + mode, 'platform=' + process.platform, 'window=' + cfg.window.mode)
 
+  // macOS：不要在 Dock 里冒出一个 Electron 图标
+  if (process.platform === 'darwin' && app.dock) app.dock.hide()
+
   const layout = windowBounds(cfg)
   const win = new BrowserWindow({
     ...layout.bounds,
@@ -97,6 +100,7 @@ function main() {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
+    enableLargerThanScreen: process.platform === 'darwin',
     skipTaskbar: true,
     alwaysOnTop: true,
     title: 'Claude',
@@ -109,7 +113,13 @@ function main() {
       autoplayPolicy: 'no-user-gesture-required',
     },
   })
-  win.setAlwaysOnTop(true, 'floating')
+  if (process.platform === 'darwin') {
+    // 盖在 Claude 上面，哪怕 Claude 在全屏 Space 里；也盖住菜单栏
+    win.setAlwaysOnTop(true, 'screen-saver')
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  } else {
+    win.setAlwaysOnTop(true, 'floating')
+  }
   win.setMenu(null)
 
   let claude = null

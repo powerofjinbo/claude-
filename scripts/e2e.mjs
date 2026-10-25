@@ -19,6 +19,13 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'splash-e2e-'))
 let fake
 if (win) {
   fake = { file: path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'notepad.exe'), name: 'notepad' }
+} else if (process.platform === 'darwin') {
+  // macOS 上脚本的进程名是解释器（sh），pgrep -x 认不出来：复制一个会一直跑下去的系统程序改个名
+  const name = 'fkclaude' + process.pid
+  const file = path.join(tmp, name)
+  fs.copyFileSync('/usr/bin/caffeinate', file)
+  fs.chmodSync(file, 0o755)
+  fake = { file, name }
 } else {
   const name = 'fkclaude' + process.pid
   const file = path.join(tmp, name)
@@ -82,7 +89,7 @@ async function scenario(name, args, expect) {
 }
 
 const fast = { animation: { speed: 4, sound: false }, timing: { maxWaitMs: 15000, fadeMs: 200 } }
-const cfg = writeConfig('fake', { ...fast, claude: { target: fake.file, processName: fake.name } })
+const cfg = writeConfig('fake', { ...fast, claude: { target: fake.file, processName: fake.name, windowFallbackMs: 1500 } })
 const cfgMissing = writeConfig('missing', { ...fast, claude: { target: path.join(tmp, 'nope.exe'), processName: 'nope-claude' } })
 
 killFake()

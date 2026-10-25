@@ -15,6 +15,33 @@
 这里一样是「播一段视频」：`assets/boot.mp4` 是用可灵（图生视频 + 对口型）生成的，首帧的霓虹线稿和尾帧都是
 这个仓库从立绘算出来的，见下文。
 
+## 安装（macOS）
+
+需要 [Node.js](https://nodejs.org)（LTS，或 `brew install node`）和已经装好的 Claude Desktop。
+**克隆到家目录下**（别放在「桌面 / 文稿 / 下载」里：macOS 不让后台任务读这几个文件夹，watcher 会悄悄失效）：
+
+```bash
+git clone https://github.com/powerofjinbo/claude-.git ~/claude-splash
+cd ~/claude-splash
+bash scripts/install-mac.sh
+```
+
+它会：
+
+1. `npm install`（下载 Electron，约 100 MB，只有第一次）
+2. 找到 `/Applications/Claude.app`，写进 `config.json`
+3. 建一个 `~/Applications/Claude Splash.app`：点它 = 放动画 + 同时启动 Claude（可以拖进 Dock 代替原来的 Claude 图标）
+4. 装一个登录时自动运行的后台 watcher（LaunchAgent）：**不管从哪里打开 Claude**（Dock、启动台、Spotlight、`claude://` 链接……），
+   只要是冷启动就放动画。不想要就加 `--no-watcher`
+
+装完以后 **Cmd+Q 彻底退出 Claude 再打开**就能看到。卸载：`bash scripts/uninstall-mac.sh`，然后删掉这个文件夹。
+
+不启动 Claude、只看效果：
+
+```bash
+node_modules/electron/dist/Electron.app/Contents/MacOS/Electron . --preview
+```
+
 ## 安装（Windows）
 
 需要 [Node.js](https://nodejs.org)（LTS 就行）和已经装好的 Claude Desktop。
@@ -43,7 +70,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 node_modules\electron\dist\electron.exe . --preview
 ```
 
-macOS：`npm install && npx electron .` 能用（`open -a Claude` + 看进程），但没有安装脚本，算尽力而为。
 
 ## 它是怎么工作的
 
@@ -52,7 +78,8 @@ macOS：`npm install && npx electron .` 能用（`open -a Claude` + 看进程）
    └─ electron .            （src/main.js）
         ├─ 无边框、透明、置顶的动画窗口（src/splash/）
         │     └─ 全屏播 assets/boot.mp4（片子里自带对好口型的 "Welcome back!"）
-        └─ src/win/helper.ps1：启动 Claude、盯着 claude.exe 的主窗口出现
+        └─ Windows：src/win/helper.ps1 启动 Claude、盯着 claude.exe 的主窗口出现
+           macOS：open -a Claude，pgrep 看进程、src/mac/window-count.js（CGWindowList，不需要辅助功能权限）看窗口
               └─ 窗口出来 + 片子放完 → 把 Claude 叫到前台 → 动画淡出 → 退出
 ```
 
@@ -60,7 +87,7 @@ macOS：`npm install && npx electron .` 能用（`open -a Claude` + 看进程）
 - **片子放完 Claude 还没出来**：停在最后一帧（进度条继续走），最多等 `timing.maxWaitMs`（20 秒）。
 - **找不到 Claude**：动画放完提示一下再退。
 - 快捷方式和 watcher 同时触发也只会有一个动画（Electron 单实例锁）。
-- 排查问题看 `%TEMP%\claude-boot-splash.log`。
+- 排查问题看日志：Windows `%TEMP%\claude-boot-splash.log`；macOS `$TMPDIR/claude-boot-splash.log`，watcher 的在 `/tmp/claude-splash-watcher.log`。
 
 ### 开机视频是怎么做出来的
 
@@ -135,8 +162,10 @@ npm run e2e         # 真起 Electron 跑 5 种情况（Linux 没显示器会自
 npm run preview     # 本地看效果
 ```
 
-CI（`.github/workflows/ci.yml`）在 Ubuntu 和 Windows 上都跑：Windows 上拿 notepad.exe 冒充 Claude，
-走一遍真实的 PowerShell helper（启动 → 等窗口 → 叫到前台）和安装 / 卸载脚本。
+CI（`.github/workflows/ci.yml`）在 Ubuntu、Windows、macOS 上都跑：
+
+- Windows：拿 notepad.exe 冒充 Claude，走一遍真实的 PowerShell helper（启动 → 等窗口 → 叫到前台）和安装 / 卸载脚本
+- macOS：拿改了名的 `caffeinate` 冒充 Claude，跑安装 / 卸载脚本，并确认后台 watcher 在它"冷启动"时真的拉起了动画
 
 ## 素材
 
