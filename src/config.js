@@ -57,6 +57,15 @@ const DEFAULT_CONFIG = {
     pitch: 1.15,
     volume: 1,
   },
+  // macOS：动画放完后，跟着 Claude 窗口走的半透明「背景」覆盖层（点击穿透，Claude 不在最前面就藏起来）
+  overlay: {
+    enabled: true,
+    // 立绘（右边）和标志 + 名字（左边）的不透明度；盖在 Claude 的界面上面，所以要淡
+    opacity: 0.18,
+    brandOpacity: 0.35,
+    // 多久查一次 Claude 窗口的位置（毫秒）；越小拖窗口时跟得越紧，越费一点点 CPU
+    intervalMs: 80,
+  },
   timing: {
     fadeMs: 700,
     skipFadeMs: 260,
@@ -110,6 +119,9 @@ function normalize(cfg) {
   cfg.animation.volume = clamp(Number(cfg.animation.volume), 0, 1)
   cfg.animation.speed = clamp(Number(cfg.animation.speed) || 1, 0.5, 4)
   cfg.claude.windowFallbackMs = clamp(Number(cfg.claude.windowFallbackMs) || 0, 500, 60000)
+  cfg.overlay.opacity = clamp(Number(cfg.overlay.opacity), 0, 1)
+  cfg.overlay.brandOpacity = clamp(Number(cfg.overlay.brandOpacity), 0, 1)
+  cfg.overlay.intervalMs = clamp(Number(cfg.overlay.intervalMs) || 80, 30, 1000)
   cfg.voice.atMs = clamp(Number(cfg.voice.atMs) || 0, 0, 20000)
   cfg.voice.rate = clamp(Number(cfg.voice.rate) || 1, 0.5, 2)
   cfg.voice.pitch = clamp(Number(cfg.voice.pitch) || 1, 0, 2)

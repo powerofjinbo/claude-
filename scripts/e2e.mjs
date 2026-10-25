@@ -88,7 +88,8 @@ async function scenario(name, args, expect) {
   }
 }
 
-const fast = { animation: { speed: 4, sound: false }, timing: { maxWaitMs: 15000, fadeMs: 200 } }
+// overlay 关掉：macOS 上动画放完会留下来当覆盖层、等 Claude 退出才退，下面单独测
+const fast = { animation: { speed: 4, sound: false }, timing: { maxWaitMs: 15000, fadeMs: 200 }, overlay: { enabled: false } }
 const cfg = writeConfig('fake', { ...fast, claude: { target: fake.file, processName: fake.name, windowFallbackMs: 1500 } })
 const cfgMissing = writeConfig('missing', { ...fast, claude: { target: path.join(tmp, 'nope.exe'), processName: 'nope-claude' } })
 
@@ -107,6 +108,15 @@ await scenario('claude missing', ['--config', cfgMissing], ['"type":"missing"', 
   setTimeout(() => spawn(fake.file, { stdio: 'ignore', detached: true }).unref(), 1500)
   await p
   killFake()
+}
+
+// macOS：覆盖层跟着"Claude"活着，Claude 一退它也退
+if (process.platform === 'darwin') {
+  const cfgOverlay = writeConfig('overlay', { claude: { target: fake.file, processName: fake.name }, overlay: { enabled: true } })
+  spawn(fake.file, { stdio: 'ignore', detached: true }).unref()
+  const p = scenario('overlay', ['--overlay', '--config', cfgOverlay], ['mode=overlay', 'overlay: started', 'overlay: stop claude-gone'])
+  setTimeout(killFake, 4000)
+  await p
 }
 
 fs.rmSync(tmp, { recursive: true, force: true })

@@ -53,6 +53,10 @@ jobs:
           n=$(osascript -l JavaScript src/mac/window-count.js Finder)
           echo "Finder windows: $n"
           [[ "$n" =~ ^[0-9]+$ ]]
+          # 覆盖层用的窗口跟踪脚本：跑一次，应该输出一行 JSON（console.log 在 osascript 里走 stderr）
+          line=$(osascript -l JavaScript src/mac/claude-window.js Finder 80 once 2>&1)
+          echo "tracker: $line"
+          node -e 'const v=JSON.parse(process.argv[1]); if (typeof v.visible !== "boolean") process.exit(1)' "$line"
       - name: install-mac.sh / watcher / uninstall-mac.sh
         if: runner.os == 'macOS'
         run: |

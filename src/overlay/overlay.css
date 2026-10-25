@@ -1,0 +1,67 @@
+@font-face {
+  font-family: 'Great Vibes';
+  src: url('../../assets/fonts/great-vibes.woff2') format('woff2');
+}
+
+:root {
+  --her: 0.2;
+  --brand: 0.4;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Claude 的窗口是圆角的，覆盖层也裁成一样 */
+body {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.her {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  aspect-ratio: 1100 / 1091;
+  max-width: 62%;
+  background: url('../../assets/overlay-her.webp') right bottom / cover no-repeat;
+  opacity: var(--her);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 38%), linear-gradient(0deg, transparent 0%, #000 10%);
+  -webkit-mask-composite: source-in;
+}
+
+.brand {
+  position: absolute;
+  left: 4%;
+  bottom: 7%;
+  display: flex;
+  align-items: center;
+  gap: 1.2vh;
+  opacity: var(--brand);
+}
+
+#spark {
+  width: 7vh;
+  height: 7vh;
+  overflow: visible;
+}
+
+#spark line {
+  stroke: #d97757;
+  stroke-linecap: round;
+}
+
+.name {
+  font-family: 'Great Vibes', cursive;
+  font-size: 10vh;
+  line-height: 1;
+  padding: 0 0.2em 0.1em 0.05em;
+  color: #d97757;
+}

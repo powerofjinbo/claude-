@@ -6,9 +6,11 @@
  *   electron .              发起启动 Claude Desktop，同时放动画（桌面/开始菜单快捷方式走这个）
  *   electron . --attach     Claude 已经被别人启动了，只放动画（scripts/watch-claude.ps1 走这个）
  *   electron . --preview    不碰 Claude，模拟一遍启动进度（看效果用）
+ *   electron . --overlay    不放动画，只开「背景」覆盖层（macOS；watcher 登录时发现 Claude 已经开着就走这个）
  *   --config <file>         额外的配置文件，覆盖 config.json
  *
  * 动画窗口：无边框、透明、置顶、不进任务栏。渲染进程只拿到 preload 里那几个 IPC 口子。
+ * macOS 上动画放完不退出，接着变成跟着 Claude 窗口走的「背景」覆盖层（src/overlay.js），Claude 退出才退出。
  */
 const { app, BrowserWindow, ipcMain, screen } = require('electron')
 const fs = require('node:fs')
@@ -17,16 +19,18 @@ const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { loadConfig, resolveAsset } = require('./config')
 const { startClaude } = require('./claude')
+const { startOverlay } = require('./overlay')
 
 const APP_DIR = path.join(__dirname, '..')
 const SHADOW_INSET = 28
 const ANIMATION_MS = 9500
 
 function parseArgs(argv) {
-  const out = { attach: false, preview: false, config: '' }
+  const out = { attach: false, preview: false, overlay: false, config: '' }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--attach') out.attach = true
     else if (argv[i] === '--preview') out.preview = true
+    else if (argv[i] === '--overlay') out.overlay = true
     else if (argv[i] === '--config') out.config = argv[++i] || ''
   }
   return out
@@ -81,11 +85,22 @@ function windowBounds(cfg) {
 
 function main() {
   const cfg = loadConfig(APP_DIR, args.config)
-  const mode = args.preview ? 'preview' : args.attach ? 'attach' : 'launch'
+  const mode = args.overlay ? 'overlay' : args.preview ? 'preview' : args.attach ? 'attach' : 'launch'
   log('mode=' + mode, 'platform=' + process.platform, 'window=' + cfg.window.mode)
 
   // macOS：不要在 Dock 里冒出一个 Electron 图标
   if (process.platform === 'darwin' && app.dock) app.dock.hide()
+
+  const overlayWanted = process.platform === 'darwin' && cfg.overlay.enabled
+  const runOverlay = () => startOverlay({ cfg, log, onExit: () => app.quit() })
+  if (mode === 'overlay') {
+    if (!overlayWanted) {
+      log('quit: overlay disabled or unsupported on', process.platform)
+      return app.quit()
+    }
+    runOverlay()
+    return
+  }
 
   const layout = windowBounds(cfg)
   const win = new BrowserWindow({
@@ -127,6 +142,7 @@ function main() {
   let rendererReady = false
   let shown = false
   let quitting = false
+  let hardTimer = null
   const pending = []
 
   function send(ev) {
@@ -140,8 +156,13 @@ function main() {
     quitting = true
     log('quit:', reason)
     if (claude) claude.stop()
+    clearTimeout(hardTimer)
+    // 动画正常放完（或被跳过）后在 macOS 上接着开覆盖层；先建好覆盖层窗口再关动画窗口，
+    // 否则 window-all-closed 会先把整个应用退掉
+    const keepOverlay = overlayWanted && mode !== 'preview' && reason.startsWith('done:') && reason !== 'done:missing'
+    if (keepOverlay) runOverlay()
     if (!win.isDestroyed()) win.destroy()
-    app.quit()
+    if (!keepOverlay) app.quit()
   }
 
   function maybeShow() {
@@ -153,7 +174,8 @@ function main() {
     log('shown')
     // 兜底：渲染进程卡死也不能挡住屏幕
     const hardMs = ANIMATION_MS / cfg.animation.speed + cfg.timing.maxWaitMs + 8000
-    setTimeout(() => quit('hard-timeout'), hardMs).unref()
+    hardTimer = setTimeout(() => quit('hard-timeout'), hardMs)
+    hardTimer.unref()
   }
 
   ipcMain.handle('splash:init', () => {

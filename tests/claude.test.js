@@ -98,3 +98,14 @@ test('macOS 启动方式：应用名 / .app 走 open -a，可执行文件直接�
   assert.deepEqual(macLaunchCommand('/Applications/Claude.app'), ['open', ['-a', '/Applications/Claude.app']])
   assert.deepEqual(macLaunchCommand('/tmp/fake-claude'), ['/tmp/fake-claude', []])
 })
+
+test('覆盖层：跟踪脚本的输出行解析', () => {
+  const { parseTrackerLine } = require('../src/overlay')
+  assert.deepEqual(parseTrackerLine('{"visible":true,"front":true,"x":10,"y":20,"w":800,"h":600}'), {
+    visible: true, front: true, x: 10, y: 20, w: 800, h: 600,
+  })
+  assert.deepEqual(parseTrackerLine(' {"visible":false}\n'), { visible: false })
+  assert.equal(parseTrackerLine('execution error: something'), null)
+  assert.equal(parseTrackerLine('{not json'), null)
+  assert.equal(parseTrackerLine('{"x":1}'), null)
+})

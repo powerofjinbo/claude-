@@ -2,7 +2,8 @@
   "_readme": "Copy to config.json and keep only the keys you want to change; missing keys fall back to the defaults in src/config.js. install.ps1 fills in claude.target for you.",
   "claude": {
     "target": "",
-    "processName": "claude"
+    "processName": "claude",
+    "windowFallbackMs": 8000
   },
   "window": {
     "mode": "fullscreen",
@@ -33,6 +34,12 @@
     "rate": 1,
     "pitch": 1.15,
     "volume": 1
+  },
+  "overlay": {
+    "enabled": true,
+    "opacity": 0.18,
+    "brandOpacity": 0.35,
+    "intervalMs": 80
   },
   "timing": {
     "fadeMs": 700,

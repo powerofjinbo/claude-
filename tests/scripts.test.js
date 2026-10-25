@@ -9,7 +9,7 @@ const path = require('node:path')
 const root = path.join(__dirname, '..')
 const files = [
   'src/win/helper.ps1', 'scripts/install.ps1', 'scripts/uninstall.ps1', 'scripts/watch-claude.ps1', 'scripts/watch-claude.vbs',
-  'scripts/install-mac.sh', 'scripts/uninstall-mac.sh', 'scripts/watch-claude-mac.sh', 'src/mac/window-count.js',
+  'scripts/install-mac.sh', 'scripts/uninstall-mac.sh', 'scripts/watch-claude-mac.sh', 'src/mac/window-count.js', 'src/mac/claude-window.js',
 ]
 
 for (const rel of files) {
