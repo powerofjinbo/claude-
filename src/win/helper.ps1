@@ -39,7 +39,10 @@ function Resolve-Target([string]$t) {
 }
 
 function Find-Claude {
-  return @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
+  $procs = @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
+  if ($ProcessName -ne 'claude') { return $procs }
+  # Claude Code (the command-line tool) is claude.exe as well: only count Claude Desktop's own install folders
+  return @($procs | Where-Object { (-not $_.Path) -or ($_.Path -match 'AnthropicClaude|\\WindowsApps\\Claude') })
 }
 
 if ($Launch) {

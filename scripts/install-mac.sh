@@ -122,6 +122,8 @@ echo "    $APP"
 
 # --- 4. background watcher ------------------------------------------------
 launchctl bootout "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
+# an older splash / overlay may still be running (and holding the single-instance lock): restart clean
+pkill -f "$ELECTRON" >/dev/null 2>&1 || true
 if [ $WATCHER = 1 ]; then
   step 'Background watcher (LaunchAgent, runs at login)'
   mkdir -p "$(dirname "$PLIST")"

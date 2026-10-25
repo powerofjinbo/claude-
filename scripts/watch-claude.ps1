@@ -34,6 +34,10 @@ while ($true) {
 
   # cold start only: every claude process must be brand new
   $procs = @(Get-Process -Name $ProcessName -ErrorAction SilentlyContinue)
+  if ($ProcessName -eq 'claude') {
+    # Claude Code (the command-line tool) is claude.exe as well: only count Claude Desktop's own install folders
+    $procs = @($procs | Where-Object { (-not $_.Path) -or ($_.Path -match 'AnthropicClaude|\\WindowsApps\\Claude') })
+  }
   if ($procs.Count -eq 0) { continue }
   $oldest = $now
   foreach ($p in $procs) {
