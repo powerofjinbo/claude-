@@ -77,7 +77,7 @@ const shots = videoUrl
       [2600, 'boot-1-trace'],
       [4300, 'boot-2-flare'],
       [6300, 'boot-3-eyes-closed'],
-      [8700, 'boot-4-welcome'],
+      [8700, 'boot-4-awake'],
     ]
   : [
       [700, 'montage-1-spark'],

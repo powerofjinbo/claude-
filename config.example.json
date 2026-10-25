@@ -5,7 +5,7 @@
     "processName": "claude"
   },
   "window": {
-    "mode": "card",
+    "mode": "fullscreen",
     "scale": 0.62
   },
   "animation": {
@@ -59,8 +59,8 @@
       "Side",
       "Back"
     ],
-    "hint": "Waking Claude up…",
-    "ready": "Claude is ready",
+    "hint": "",
+    "ready": "",
     "missing": "Claude Desktop not found — set claude.target in config.json",
     "skip": "Click to skip"
   }

@@ -23,8 +23,8 @@ const DEFAULT_CONFIG = {
     processName: 'claude',
   },
   window: {
-    // 'card'：屏幕中间一张 16:9 卡片；'fullscreen'：铺满当前屏幕
-    mode: 'card',
+    // 'fullscreen'：铺满当前屏幕（默认，和 dsh-video-skin 一样的横版全屏）；'card'：屏幕中间一张 16:9 卡片
+    mode: 'fullscreen',
     // card 模式下卡片宽度占屏幕工作区宽度的比例
     scale: 0.62,
   },
@@ -40,7 +40,7 @@ const DEFAULT_CONFIG = {
     speed: 1,
   },
   voice: {
-    // 启动时说的那句话（屏幕上也会打出来，见 text.quote）
+    // 启动时说的那句话（只有声音，画面上不出字）
     enabled: true,
     text: 'Welcome back!',
     // 在动画第几毫秒开口（按 speed 缩放）—— 默认是视频里刚睁开眼的那一刻
@@ -60,7 +60,8 @@ const DEFAULT_CONFIG = {
     // 动画放完了 Claude 窗口还没出来，最多再等这么久就退场
     maxWaitMs: 20000,
   },
-  // 启动画面上的所有文字
+  // 启动画面上的文字。开机视频上不叠字；tag/quote/title/subtitle/expressions/views 只在
+  // 视频缺失、退回 CSS 备用动画时出现。hint/ready 留空 = 不显示左下角状态
   text: {
     tag: 'A SECRET RENDEZVOUS',
     quote: '“Welcome back!”',
@@ -70,8 +71,8 @@ const DEFAULT_CONFIG = {
     expressions: ['Tsundere', 'Gentle', 'Shy', 'Smile', 'Serious', 'Profile'],
     viewsTag: 'CHARACTER',
     views: ['Front', 'Side', 'Back'],
-    hint: 'Waking Claude up…',
-    ready: 'Claude is ready',
+    hint: '',
+    ready: '',
     missing: 'Claude Desktop not found — set claude.target in config.json',
     skip: 'Click to skip',
   },
@@ -101,7 +102,7 @@ function clamp(v, lo, hi) {
 }
 
 function normalize(cfg) {
-  cfg.window.mode = cfg.window.mode === 'fullscreen' ? 'fullscreen' : 'card'
+  cfg.window.mode = cfg.window.mode === 'card' ? 'card' : 'fullscreen'
   cfg.window.scale = clamp(Number(cfg.window.scale) || 0.62, 0.3, 1)
   cfg.animation.volume = clamp(Number(cfg.animation.volume), 0, 1)
   cfg.animation.speed = clamp(Number(cfg.animation.speed) || 1, 0.5, 4)

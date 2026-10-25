@@ -1,7 +1,7 @@
 /* Claude 开机动画（渲染进程）。
  *
  * 默认放 assets/boot.mp4（tools/render_boot.py 渲染：光线勾勒轮廓 → 过曝 → 上色 → 睁眼），
- * 上面叠一层 HTML 台词和落款；视频缺失或解码失败时退回下面这套纯 CSS 动画。
+ * 画面上不加字，睁眼那一刻用 TTS 说 "Welcome back!"；视频缺失或解码失败时退回下面这套纯 CSS 动画。
  *
  * CSS 动画时间轴（speed = 1，单位 ms）：
  *    0 ─ 1150  A 星芒：射线从中心长出来，转半圈定住，闪白转场
@@ -601,16 +601,22 @@
     requestAnimationFrame(progressLoop)
   }
 
+  /** 左下角状态文字；空字符串就整条藏起来。 */
+  function setHint(text) {
+    hintText.textContent = text || ''
+    $('.hint').hidden = !text
+  }
+
   function onClaude(ev) {
     if (!ev || !ev.type) return
     if (ev.type === 'window') {
       state.claude = 'window'
       hud.classList.add('ready')
-      hintText.textContent = cfg.text.ready
+      setHint(cfg.text.ready)
     } else if (ev.type === 'missing') {
       state.claude = 'missing'
       hud.classList.add('missing')
-      hintText.textContent = cfg.text.missing
+      setHint(cfg.text.missing)
     } else if (ev.type === 'proc' && state.claude !== 'window') {
       state.claude = 'proc'
     } else if ((ev.type === 'launched' || ev.type === 'attach') && state.claude === 'pending') {
@@ -675,8 +681,8 @@
 
   function playVideo(url) {
     var v = $('#video')
-    // 视频模式：舞台上只留台词和落款（叠在视频上），其他场景、光效都不要
-    var hide = ['#logo', '#strip', '#views', '#heroBg', '#portrait', '.leak', '.flash', '.vignette', '.bg', '#dust']
+    // 视频模式：CSS 动画的舞台和光效全部不要
+    var hide = ['#stage', '.leak', '.flash', '.vignette', '.bg', '#dust']
     return new Promise(function (resolve) {
       v.src = url
       v.muted = !cfg.animation.sound
@@ -715,8 +721,9 @@
     speed = cfg.animation.speed || 1
     frame.style.setProperty('--inset', (init.inset || 0) + 'px')
     if (init.fullscreen) frame.classList.add('fullscreen')
-    hintText.textContent = cfg.text.hint
+    setHint(cfg.text.hint)
     $('.skip-text').textContent = cfg.text.skip
+    $('.skip').hidden = !cfg.text.skip
     fit()
     window.addEventListener('resize', fit)
 
@@ -748,10 +755,8 @@
         requestAnimationFrame(progressLoop)
         if (voice) setTimeout(function () { if (!state.leaving) voice.speak() }, T(cfg.voice.atMs))
         if (video) {
+          // 和 dsh-video-skin 一样：画面上不加字，只在睁眼那一刻用语音说 "Welcome back!"
           $('#video').play().catch(function () { finishAnimation() })
-          $('#hero').style.opacity = '1'
-          // 台词跟着那句 "Welcome back!" 一起出来
-          playCopy(parts, Math.max(0, cfg.voice.atMs - 250), 750)
         } else {
           if (cfg.animation.sound && cfg.animation.volume > 0) {
             try {

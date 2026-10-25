@@ -1,13 +1,16 @@
-"""渲染开机动画 assets/boot.mp4（1280×720 / 24fps / 带声音）。
+"""渲染开机动画 assets/boot.mp4（1280×720 / 24fps / 带声音，横版全屏，无文字）。
 
 思路和 dsh-video-skin 的 boot.mp4 一样：黑场 → 霓虹光带扫过 → 光线一笔一笔勾出人物轮廓 →
 线条过曝成白光 → 颜色从线稿底下渗出来（这时是闭着眼的）→ 睁眼 → 定格。
-区别是那边的片子是现成素材，这里是从 assets/claude-sheet.webp 这一张设定图现场算出来的：
+区别是那边的片子是现成素材，这里是从一张立绘现场算出来的：
 
+  - 人物：assets/claude-portraits.webp 里正面上半身那张，Real-ESRGAN anime 4× 放大
+    （tools/upscale.py），GrabCut 抠出来放到深色背景上
   - 闭眼版：tools/eyes.py（inpaint 掉眼睛 + 画眼睑线）
-  - 线稿：闭眼版的 Canny 边缘；每个连通笔画从最上面的点开始 BFS，按"沿笔画的距离"决定
-    什么时候亮起来 —— 所以看起来是被一支光笔顺着笔画描出来的，而不是整片淡入
-  - 声音：numpy 现场合成（垫底 + 光带呼啸 + 描线时的电子琶音 + 过曝冲击 + 睁眼铃音）
+  - 线稿：闭眼版的 Canny 边缘 + 剪影外轮廓；每个连通笔画从最上面的点开始 BFS，按"沿笔画的距离"
+    决定什么时候亮起来 —— 所以看起来是被一支光笔顺着笔画描出来的，而不是整片淡入
+  - 声音：numpy 现场合成（垫底 + 光带呼啸 + 描线时的电子琶音 + 过曝冲击 + 睁眼铃音）。
+    "Welcome back!" 不在片子里，是启动器在睁眼那一刻用系统 TTS 说的（见 config.voice）
 
 用法：
   pip install -r tools/requirements.txt
@@ -27,6 +30,7 @@ from scipy.signal import fftconvolve, lfilter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from eyes import close_eyes, eye_regions  # noqa: E402
+from upscale import CACHE, upscale  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 W, H, FPS = 1280, 720, 24
@@ -34,11 +38,14 @@ DUR = 9.0
 N = int(DUR * FPS)
 SR = 44100
 
-# 设定图上的立绘区域（头到胸口）、在画面里的缩放和位置
-CROP = (250, 0, 612, 470)
-SCALE = H / (CROP[3] - CROP[1])
-CW = int(round((CROP[2] - CROP[0]) * SCALE))
-CX0 = 640 + 190 - CW // 2  # 人物略偏右，左边留给文字
+# 立绘：assets/claude-portraits.webp 第一行中间那张（正面上半身），4× 放大后在这个坐标系里量的眼睛
+PORTRAIT_FILE = 'claude-portraits.webp'
+PORTRAIT = (518, 0, 1019, 510)
+EYES_X4 = [
+    dict(outer=(660, 765), inner=(848, 785), top=(760, 708), bottom=(780, 828), sag=6.0, grow=1.4, skin=0.6),
+    dict(outer=(1325, 665), inner=(1142, 715), top=(1250, 628), bottom=(1220, 765), sag=6.0, grow=1.4, skin=0.6),
+]
+CW, CX0 = W, 0  # 人物层和画面一样大
 
 # 时间轴（秒）
 RIB_IN, RIB_OUT = 0.15, 4.2
@@ -63,51 +70,98 @@ def ramp(t, a, b):
 # ---------------------------------------------------------------- 素材准备
 
 
+def portrait_x4():
+    """立绘 4× 放大（Real-ESRGAN anime，结果缓存在 tools/.cache/）。"""
+    path = os.path.join(CACHE, 'portrait-x4.png')
+    if os.path.exists(path):
+        return cv2.imread(path)
+    src = cv2.imread(os.path.join(ROOT, 'assets', PORTRAIT_FILE))
+    x0, y0, x1, y1 = PORTRAIT
+    rgb = cv2.cvtColor(src[y0:y1, x0:x1], cv2.COLOR_BGR2RGB)
+    big = cv2.cvtColor(upscale(rgb), cv2.COLOR_RGB2BGR)
+    os.makedirs(CACHE, exist_ok=True)
+    cv2.imwrite(path, big)
+    return big
+
+
+def cutout(img):
+    """GrabCut 抠出人物（img 已经是成片尺寸），返回 0..1 的 alpha。"""
+    h, w = img.shape[:2]
+    m = np.full((h, w), cv2.GC_PR_BGD, np.uint8)
+    m[:6] = cv2.GC_BGD
+    m[:, :6] = cv2.GC_BGD
+    m[:, -6:] = cv2.GC_BGD
+    cv2.ellipse(m, (w // 2, int(h * 0.6)), (int(w * 0.42), int(h * 0.62)), 0, 0, 360, cv2.GC_PR_FGD, -1)
+    cv2.ellipse(m, (int(w * 0.49), int(h * 0.39)), (int(w * 0.155), int(h * 0.18)), 0, 0, 360, cv2.GC_FGD, -1)  # 脸
+    cv2.rectangle(m, (int(w * 0.31), int(h * 0.58)), (int(w * 0.69), h - 1), cv2.GC_FGD, -1)  # 躯干
+    cv2.rectangle(m, (int(w * 0.04), int(h * 0.80)), (int(w * 0.96), h - 1), cv2.GC_FGD, -1)  # 两边的袖子
+    cv2.rectangle(m, (int(w * 0.68), int(h * 0.04)), (int(w * 0.90), int(h * 0.52)), cv2.GC_PR_FGD, -1)  # 发饰
+    cv2.rectangle(m, (int(w * 0.74), int(h * 0.10)), (int(w * 0.82), int(h * 0.34)), cv2.GC_FGD, -1)
+    bgm = np.zeros((1, 65), np.float64)
+    fgm = np.zeros((1, 65), np.float64)
+    cv2.grabCut(img, m, None, bgm, fgm, 8, cv2.GC_INIT_WITH_MASK)
+    fg = np.where((m == cv2.GC_FGD) | (m == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(fg, connectivity=8)
+    if n > 1:  # 只留最大的连通块
+        keep = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        fg = np.where(lab == keep, 255, 0).astype(np.uint8)
+    return cv2.GaussianBlur(fg, (0, 0), 1.2).astype(np.float32) / 255
+
+
 def load_layers():
-    sheet = cv2.imread(os.path.join(ROOT, 'assets', 'claude-sheet.webp'))
-    closed = close_eyes(sheet)
+    big = portrait_x4()
+    ph = H
+    pw = int(round(big.shape[1] * H / big.shape[0]))
+    k = H / big.shape[0]
+    px = (W - pw) // 2
+    small = cv2.resize(big, (pw, ph), interpolation=cv2.INTER_AREA)
+    eyes_px = [{key: ((v[0] * k, v[1] * k) if isinstance(v, tuple) else v) for key, v in e.items()} for e in EYES_X4]
+    closed_small = close_eyes(small, eyes_px)
+    alpha_small = cutout(small)
+    # 立绘左右两边是画框切断的头发：羽化掉
+    xx = np.arange(pw, dtype=np.float32)
+    alpha_small *= np.minimum(smooth(xx / 70), smooth((pw - 1 - xx) / 70))[None, :]
+    yy = np.arange(ph, dtype=np.float32)
+    alpha_small *= smooth((ph - 1 - yy) / 90)[:, None]  # 画面下沿切断身体的地方也羽化
 
-    def crop(img):
-        c = img[CROP[1]:CROP[3], CROP[0]:CROP[2]]
-        c = cv2.resize(c, (CW, H), interpolation=cv2.INTER_LANCZOS4)
-        blur = cv2.GaussianBlur(c, (0, 0), 1.2)
-        c = cv2.addWeighted(c, 1.35, blur, -0.35, 0)  # 放大后轻微锐化
-        return cv2.cvtColor(c, cv2.COLOR_BGR2RGB).astype(np.float32) / 255
+    def full(img):
+        out = np.zeros((H, W) + img.shape[2:], img.dtype)
+        out[:, px:px + pw] = img
+        return out
 
-    open_rgb = crop(sheet)
-    closed_rgb = crop(closed)
+    def rgb(img):
+        return cv2.cvtColor(full(img), cv2.COLOR_BGR2RGB).astype(np.float32) / 255
 
-    # 边缘羽化：立绘是一个矩形，四边要融进黑底
-    yy, xx = np.mgrid[0:H, 0:CW].astype(np.float32)
-    fx = np.minimum(smooth(xx / 120), smooth((CW - 1 - xx) / 120))
-    fy = smooth((H - 1 - yy) / 140)
-    feather = (fx * fy)[..., None]
+    open_rgb = rgb(small)
+    closed_rgb = rgb(closed_small)
+    alpha = full(alpha_small)
+    feather = alpha[..., None]
 
-    # 线稿
+    # 线稿：人物内部的 Canny + 剪影外轮廓，背景一根线都没有
     gray = cv2.cvtColor((closed_rgb * 255).astype(np.uint8), cv2.COLOR_RGB2GRAY)
     soft = cv2.bilateralFilter(gray, 9, 50, 9)
-    soft = cv2.GaussianBlur(soft, (0, 0), 1.1)
+    soft = cv2.GaussianBlur(soft, (0, 0), 1.0)
     edges = cv2.Canny(soft, 30, 80)
-    edges[feather[..., 0] < 0.15] = 0
+    inner = cv2.erode((alpha > 0.5).astype(np.uint8), np.ones((5, 5), np.uint8))
+    edges[inner == 0] = 0
+    edges |= cv2.Canny((alpha * 255).astype(np.uint8), 60, 160)
 
     # 柔边（过曝阶段的"白光素描"）
     gx = cv2.Sobel(soft.astype(np.float32), cv2.CV_32F, 1, 0, ksize=3)
     gy = cv2.Sobel(soft.astype(np.float32), cv2.CV_32F, 0, 1, ksize=3)
-    mag = np.sqrt(gx * gx + gy * gy)
-    mag = np.clip(mag / np.percentile(mag, 97), 0, 1) ** 0.8
-    sketch = cv2.GaussianBlur(mag, (0, 0), 0.8) * feather[..., 0]
+    mag = np.sqrt(gx * gx + gy * gy) * alpha
+    mag = np.clip(mag / np.percentile(mag[alpha > 0.5], 97), 0, 1) ** 0.8
+    sketch = cv2.GaussianBlur(mag, (0, 0), 0.8)
 
     reveal = trace_order(edges)
 
-    # 眼睛区域（画面坐标）
-    eyes = []
-    for (cx, cy, rx, ry, ang) in eye_regions():
-        eyes.append(((cx - CROP[0]) * SCALE, (cy - CROP[1]) * SCALE, rx * SCALE, ry * SCALE, ang))
+    eyes = [(px + cx, cy, rx, ry, ang) for (cx, cy, rx, ry, ang) in eye_regions(eyes_px)]
 
-    # 背景板：立绘本身大幅模糊、放大铺满整个画面 —— 颜色渗出来时不会剩一个硬邦邦的矩形
-    plate = cv2.resize(open_rgb, (W, int(W * H / CW)), interpolation=cv2.INTER_LINEAR)
+    # 背景板：立绘自己的背景（城堡、烛光）大幅模糊、压暗、铺满整个横版画面
+    plate = cv2.resize(small, (W, int(W * ph / pw)), interpolation=cv2.INTER_LINEAR)
     oy = (plate.shape[0] - H) // 3
-    plate = cv2.GaussianBlur(plate[oy:oy + H], (0, 0), 28) * 0.42
+    plate = cv2.cvtColor(plate[oy:oy + H], cv2.COLOR_BGR2RGB).astype(np.float32) / 255
+    plate = cv2.GaussianBlur(plate, (0, 0), 26) * np.array([0.42, 0.34, 0.42], np.float32)
 
     return dict(plate=plate, open=open_rgb, closed=closed_rgb, feather=feather, edges=edges > 0,
                 reveal=reveal, sketch=sketch, eyes=eyes)
@@ -296,7 +350,7 @@ def render_frame(L, ribbons, dust, t, line_col):
     sk = L['sketch'] * (flare * 0.45 + ramp(t, FLARE0, FLARE_PEAK) * 0.25 * fade * (1 - col_amt))
     lines += np.array([0.85, 0.9, 1.0], np.float32) * sk[..., None]
     lines = glow(lines, (1.4, 5, 16), (0.9, 0.7 + flare * 0.5, 0.45 + flare * 0.5))
-    frame[:, CX0:CX0 + CW] += lines * L['feather'] ** 0.5
+    frame += lines  # 线稿只在人物里，辉光允许溢出去
 
     # 光带 / 粒子 / 星芒（超采样画在 uint8 之外的 float 画布上）
     fx = np.zeros((H, W, 3), np.float32)

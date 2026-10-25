@@ -36,7 +36,7 @@ test('数值会被夹到安全范围，mode 只认两个值', () => {
     JSON.stringify({ window: { mode: 'huge', scale: 5 }, animation: { speed: 100, volume: -1 }, timing: { maxWaitMs: 1e9 } }),
   )
   const cfg = loadConfig(dir)
-  assert.equal(cfg.window.mode, 'card')
+  assert.equal(cfg.window.mode, 'fullscreen')
   assert.equal(cfg.window.scale, 1)
   assert.equal(cfg.animation.speed, 4)
   assert.equal(cfg.animation.volume, 0)
@@ -45,8 +45,8 @@ test('数值会被夹到安全范围，mode 只认两个值', () => {
 
 test('带 BOM 的 config.json（记事本保存的）照样能读', () => {
   const dir = tmpDir()
-  fs.writeFileSync(path.join(dir, 'config.json'), '\uFEFF' + JSON.stringify({ window: { mode: 'fullscreen' } }))
-  assert.equal(loadConfig(dir).window.mode, 'fullscreen')
+  fs.writeFileSync(path.join(dir, 'config.json'), '\uFEFF' + JSON.stringify({ window: { mode: 'card' } }))
+  assert.equal(loadConfig(dir).window.mode, 'card')
 })
 
 test('写坏的 config.json 不会让启动崩掉', () => {

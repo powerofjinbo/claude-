@@ -1,14 +1,15 @@
 """闭眼版立绘：把睁着的眼睛 inpaint 成皮肤，再画上闭合的眼睑线。
 
-坐标都是 claude-sheet.webp（1536×1024）上的像素。在 SS 倍超采样画布上画，最后缩回来，线条才顺滑。
+眼睛坐标是手量的（每只眼：外眼角、内眼角、上眼睑最高点、下眼睑最低点）。只处理眼睛周围一小块，
+在 SS 倍超采样画布上画，最后缩回来，线条才顺滑。线宽、睫毛长度按"眼睛宽约 55px"设计。
 """
 import cv2
 import numpy as np
 
 SS = 4
 
-# 每只眼：外眼角、内眼角、上眼睑最高点、下眼睑最低点（原图像素），以及眼睑线往下弯的程度
-EYES = [
+# claude-sheet.webp 上主视觉（托腮）那张的眼睛
+SHEET_EYES = [
     # 画面左边那只（她的右眼）
     dict(outer=(305, 284), inner=(361, 272), top=(334, 262), bottom=(334, 292), sag=7.0),
     # 画面右边那只（她的左眼）
@@ -40,23 +41,49 @@ def eye_mask(shape, eye, grow=1.0):
     return m
 
 
-def close_eyes(bgr):
-    """bgr: 整张设定图（原分辨率）。返回同尺寸的闭眼版。"""
+def close_eyes(bgr, eyes):
+    """返回 bgr 的闭眼版（同尺寸）。只改眼睛周围的一块。"""
+    pts = np.array([p for e in eyes for p in (e['outer'], e['inner'], e['top'], e['bottom'])], float)
+    x0, y0 = np.maximum(0, np.floor(pts.min(0) - 40)).astype(int)
+    x1, y1 = np.ceil(pts.max(0) + 40).astype(int)
+    x1, y1 = min(x1, bgr.shape[1]), min(y1, bgr.shape[0])
+    shifted = []
+    for e in eyes:
+        e = dict(e)
+        for k in ('outer', 'inner', 'top', 'bottom'):
+            e[k] = (e[k][0] - x0, e[k][1] - y0)
+        shifted.append(e)
+    out = bgr.copy()
+    out[y0:y1, x0:x1] = _close_region(bgr[y0:y1, x0:x1], shifted)
+    return out
+
+
+def _close_region(bgr, eyes):
     h, w = bgr.shape[:2]
     big = cv2.resize(bgr, (w * SS, h * SS), interpolation=cv2.INTER_CUBIC)
     mask = np.zeros(big.shape[:2], np.uint8)
-    for eye in EYES:
-        mask = np.maximum(mask, eye_mask(big.shape, eye, grow=1.12))
+    for eye in eyes:
+        mask = np.maximum(mask, eye_mask(big.shape, eye, grow=eye.get('grow', 1.12)))
     mask = cv2.dilate(mask, np.ones((5, 5), np.uint8))
     filled = cv2.inpaint(big, mask, 9 * SS, cv2.INPAINT_TELEA)
     # inpaint 的结果有点"抹"，用大半径模糊再柔和一次，和周围皮肤的质感接上
     soft = cv2.GaussianBlur(filled, (0, 0), 3 * SS)
+    # inpaint 会从睫毛外沿吸进深色，留下一圈脏影；往脸颊的肤色拉一把
+    cheek = np.zeros(big.shape[:2], np.uint8)
+    for eye in eyes:
+        bx, by = eye['bottom']
+        w_eye = abs(eye['inner'][0] - eye['outer'][0])
+        cv2.rectangle(cheek, (int((bx - w_eye * 0.3) * SS), int((by + 6) * SS)),
+                      (int((bx + w_eye * 0.3) * SS), int((by + 16) * SS)), 255, -1)
+    skin = np.median(big[cheek > 0], axis=0) if cheek.any() else soft.reshape(-1, 3).mean(0)
+    skin_w = eyes[0].get('skin', 0.0)
+    fill = (soft * 0.55 + filled * 0.45) * (1 - skin_w) + skin * skin_w
     fm = cv2.GaussianBlur(mask, (0, 0), 2 * SS).astype(np.float32)[..., None] / 255
-    out = (big * (1 - fm) + (soft * 0.55 + filled * 0.45) * fm).astype(np.float32)
+    out = (big * (1 - fm) + fill * fm).astype(np.float32)
 
     lines = np.zeros(big.shape[:2], np.float32)
     shade = np.zeros(big.shape[:2], np.float32)
-    for eye in EYES:
+    for eye in eyes:
         o = np.array(eye['outer'], float)
         i = np.array(eye['inner'], float)
         mid = (o + i) / 2
@@ -92,10 +119,10 @@ def close_eyes(bgr):
     return small
 
 
-def eye_regions():
-    """(cx, cy, rx, ry, angle) 原图像素，给"睁眼"动画用。"""
+def eye_regions(eyes):
+    """(cx, cy, rx, ry, angle)，给"睁眼"动画用。"""
     out = []
-    for eye in EYES:
+    for eye in eyes:
         o = np.array(eye['outer'], float)
         i = np.array(eye['inner'], float)
         c = (o + i) / 2
@@ -110,6 +137,6 @@ def eye_regions():
 if __name__ == '__main__':
     import sys
     src = cv2.imread(sys.argv[1])
-    closed = close_eyes(src)
+    closed = close_eyes(src, SHEET_EYES)
     crop = lambda im: cv2.resize(im[180:330, 290:520], (920, 600), interpolation=cv2.INTER_LANCZOS4)
     cv2.imwrite(sys.argv[2], np.concatenate([crop(src), crop(closed)], axis=0))

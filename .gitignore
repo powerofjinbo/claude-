@@ -4,3 +4,4 @@ out/
 *.log
 __pycache__/
 docs/preview.mp4
+tools/.cache/
