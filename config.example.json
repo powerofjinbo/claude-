@@ -1,0 +1,67 @@
+{
+  "_readme": "Copy to config.json and keep only the keys you want to change; missing keys fall back to the defaults in src/config.js. install.ps1 fills in claude.target for you.",
+  "claude": {
+    "target": "",
+    "processName": "claude"
+  },
+  "window": {
+    "mode": "card",
+    "scale": 0.62
+  },
+  "animation": {
+    "video": "assets/boot.mp4",
+    "sheet": "assets/claude-sheet.webp",
+    "sound": true,
+    "volume": 0.55,
+    "speed": 1
+  },
+  "voice": {
+    "enabled": true,
+    "text": "Welcome back!",
+    "atMs": 7150,
+    "file": "",
+    "lang": "en-US",
+    "prefer": [
+      "Aria",
+      "Jenny",
+      "Ava",
+      "Emma",
+      "Zira",
+      "Samantha",
+      "Google US English"
+    ],
+    "rate": 1,
+    "pitch": 1.15,
+    "volume": 1
+  },
+  "timing": {
+    "fadeMs": 700,
+    "skipFadeMs": 260,
+    "maxWaitMs": 20000
+  },
+  "text": {
+    "tag": "A SECRET RENDEZVOUS",
+    "quote": "“Welcome back!”",
+    "title": "Claude",
+    "subtitle": "Always elegant. Always composed.",
+    "expressionsTag": "EXPRESSIONS",
+    "expressions": [
+      "Tsundere",
+      "Gentle",
+      "Shy",
+      "Smile",
+      "Serious",
+      "Profile"
+    ],
+    "viewsTag": "CHARACTER",
+    "views": [
+      "Front",
+      "Side",
+      "Back"
+    ],
+    "hint": "Waking Claude up…",
+    "ready": "Claude is ready",
+    "missing": "Claude Desktop not found — set claude.target in config.json",
+    "skip": "Click to skip"
+  }
+}

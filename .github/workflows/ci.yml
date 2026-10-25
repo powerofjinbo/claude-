@@ -1,0 +1,48 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install xvfb
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: npm test
+      # 真起 Electron：preview / 冷启动 / 已经开着 / 找不到 / attach（Windows 上用 notepad 冒充 Claude）
+      - run: npm run e2e
+      - name: Splash log
+        if: always()
+        shell: bash
+        run: cat "${TEMP:-/tmp}/claude-boot-splash.log" 2>/dev/null || true
+      # 安装 / 卸载脚本冒烟（-Target 指向 notepad，不需要真的 Claude）
+      - name: install.ps1 / uninstall.ps1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\scripts\install.ps1 -SkipNpm -NoWatcher -Target "$env:SystemRoot\System32\notepad.exe"
+          $desk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Claude.lnk'
+          $menu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Claude Splash.lnk'
+          if (-not (Test-Path $desk)) { throw 'desktop shortcut missing' }
+          if (-not (Test-Path $menu)) { throw 'start menu shortcut missing' }
+          $cfg = Get-Content config.json -Raw | ConvertFrom-Json
+          if ($cfg.claude.target -notlike '*notepad.exe') { throw 'config.json target not written' }
+          & .\scripts\uninstall.ps1
+          if (Test-Path $desk) { throw 'desktop shortcut not removed' }
+          if (Test-Path $menu) { throw 'start menu shortcut not removed' }
