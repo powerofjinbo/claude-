@@ -14,6 +14,7 @@ const { BrowserWindow } = require('electron')
 const { execFile, spawn } = require('node:child_process')
 const path = require('node:path')
 const readline = require('node:readline')
+const { posixProcessName } = require('./claude')
 
 function parseTrackerLine(line) {
   const s = String(line).trim()
@@ -31,7 +32,7 @@ function parseTrackerLine(line) {
  */
 function startOverlay({ cfg, log, onExit }) {
   const o = cfg.overlay
-  const name = cfg.claude.processName || 'Claude'
+  const name = posixProcessName(cfg, 'darwin')
   const win = new BrowserWindow({
     show: false,
     frame: false,
@@ -92,7 +93,7 @@ function startOverlay({ cfg, log, onExit }) {
 
   // Claude 退出了就收工
   const alive = setInterval(() => {
-    execFile('pgrep', ['-i', '-x', name], (err) => {
+    execFile('pgrep', ['-x', name], (err) => {
       if (err) stop('claude-gone')
     })
   }, 2000)

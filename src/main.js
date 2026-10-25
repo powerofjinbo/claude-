@@ -60,6 +60,13 @@ if (!app.requestSingleInstanceLock()) {
   // 已经有一个实例在跑（动画，或者 macOS 上一直留着的覆盖层）时又点了快捷方式 / Claude Splash.app：
   // 新实例拿不到锁会直接退出，这里替它把 Claude 叫到前台，不然点了等于没点
   app.on('second-instance', (_e, argv) => {
+    if (argv.includes('--attach') && overlayActive) {
+      // Claude 退出后马上又打开，覆盖层还没来得及发现（每 2 秒查一次）就还占着锁：让位给新的开机动画
+      log('second instance --attach while the overlay is up: relaunch for the splash')
+      app.relaunch({ args: [APP_DIR, '--attach', ...(args.config ? ['--config', args.config] : [])] })
+      app.exit(0)
+      return
+    }
     if (['--attach', '--overlay', '--preview'].some((f) => argv.includes(f))) return
     log('second instance: bring Claude to front')
     focusClaude()
@@ -67,6 +74,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let currentCfg = null
+let overlayActive = false
 
 function focusClaude() {
   const target = currentCfg ? currentCfg.claude.target : ''
@@ -115,7 +123,10 @@ function main() {
   if (process.platform === 'darwin' && app.dock) app.dock.hide()
 
   const overlayWanted = process.platform === 'darwin' && cfg.overlay.enabled
-  const runOverlay = () => startOverlay({ cfg, log, onExit: () => app.quit() })
+  const runOverlay = () => {
+    overlayActive = true
+    startOverlay({ cfg, log, onExit: () => app.quit() })
+  }
   if (mode === 'overlay') {
     if (!overlayWanted) {
       log('quit: overlay disabled or unsupported on', process.platform)

@@ -56,6 +56,16 @@ function startWindows({ cfg, launch, onEvent }) {
   }
 }
 
+/**
+ * 要找的进程名，**区分大小写**。macOS 上 Claude Desktop 的进程叫 "Claude"，而 Claude Code 命令行叫 "claude"：
+ * 早先用 pgrep -i 不分大小写，开着 Claude Code 时就会把它当成 Claude Desktop（覆盖层以为 Claude 没退出、一直占着锁，
+ * 下次打开 Claude 的开机动画就被挡掉了）。
+ */
+function posixProcessName(cfg, platform) {
+  const n = cfg.claude.processName || 'claude'
+  return platform === 'darwin' && n === 'claude' ? 'Claude' : n
+}
+
 /** macOS 上 cfg.claude.target 怎么启动：应用名 / .app 路径走 open -a，可执行文件路径直接跑（测试用）。 */
 function macLaunchCommand(target) {
   const t = target || 'Claude'
@@ -70,10 +80,10 @@ function macLaunchCommand(target) {
  * Linux 只看进程，进程出现后 1.5 秒当窗口出来了。
  */
 function startPosix({ cfg, launch, onEvent, platform }) {
-  const name = cfg.claude.processName || 'claude'
+  const name = posixProcessName(cfg, platform)
   let timer = null
   let stopped = false
-  const pgrep = (cb) => execFile('pgrep', ['-i', '-x', name], (err, out) => cb(!err && String(out).trim() !== ''))
+  const pgrep = (cb) => execFile('pgrep', ['-x', name], (err, out) => cb(!err && String(out).trim() !== ''))
   const probe = path.join(__dirname, 'mac', 'window-count.js')
   const countWindows = (cb) =>
     execFile('osascript', ['-l', 'JavaScript', probe, name], { timeout: 3000 }, (err, out) => cb(err ? 0 : Number(String(out).trim()) || 0))
@@ -163,4 +173,4 @@ function startClaude(opts) {
   return startPosix({ ...opts, platform })
 }
 
-module.exports = { startClaude, parseHelperLine, macLaunchCommand }
+module.exports = { startClaude, parseHelperLine, macLaunchCommand, posixProcessName }

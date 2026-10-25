@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { parseHelperLine, startClaude, macLaunchCommand } = require('../src/claude')
+const { parseHelperLine, startClaude, macLaunchCommand, posixProcessName } = require('../src/claude')
 const { DEFAULT_CONFIG, merge } = require('../src/config')
 
 test('helper.ps1 的输出行解析', () => {
@@ -108,4 +108,27 @@ test('覆盖层：跟踪脚本的输出行解析', () => {
   assert.equal(parseTrackerLine('execution error: something'), null)
   assert.equal(parseTrackerLine('{not json'), null)
   assert.equal(parseTrackerLine('{"x":1}'), null)
+})
+
+test('进程名区分大小写：macOS 默认找 "Claude"，不会把 Claude Code 的 "claude" 当成它', () => {
+  const cfg = (n) => merge(DEFAULT_CONFIG, { claude: { processName: n } })
+  assert.equal(posixProcessName(cfg('claude'), 'darwin'), 'Claude')
+  assert.equal(posixProcessName(cfg('Claude'), 'darwin'), 'Claude')
+  assert.equal(posixProcessName(cfg('claude'), 'linux'), 'claude')
+  assert.equal(posixProcessName(cfg('fkWatch'), 'darwin'), 'fkWatch')
+})
+
+test('POSIX：同名但大小写不同的进程（比如 Claude Code）不算 Claude 已经开着', { skip: !posix }, async () => {
+  const id = Math.random().toString(36).slice(2, 8)
+  const real = fakeClaude(5)
+  const decoyName = real.name.toLowerCase() === real.name ? real.name.toUpperCase() : real.name.toLowerCase()
+  const decoyFile = path.join(path.dirname(real.file), decoyName)
+  fs.writeFileSync(decoyFile, '#!/bin/sh\nsleep 5\n', { mode: 0o755 })
+  const decoy = require('node:child_process').spawn(decoyFile, { stdio: 'ignore' })
+  await new Promise((r) => setTimeout(r, 200))
+  const cfg = merge(DEFAULT_CONFIG, { claude: { target: real.file, processName: real.name } })
+  const events = await collect({ cfg, launch: true, platform: 'linux' }, ['already', 'window'])
+  assert.deepEqual(events, ['launched', 'proc', 'window'], id)
+  decoy.kill()
+  execFileSync('pkill', ['-x', real.name], { stdio: 'ignore' })
 })
