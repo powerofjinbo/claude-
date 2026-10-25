@@ -15,6 +15,23 @@
 这里一样是「播一段视频」：`assets/boot.mp4` 是用可灵（图生视频 + 对口型）生成的，首帧的霓虹线稿和尾帧都是
 这个仓库从立绘算出来的，见下文。
 
+## 背景（macOS）
+
+Mac 上动画放完以后，Claude 的窗口上会一直有一层**半透明、点击穿透**的「背景」：右边淡淡的是她（托腮侧脸微笑），
+左边是星芒标志 + 花体 "Claude"。它跟着 Claude 的窗口移动、缩放；Claude 不在最前面（切到别的应用、被别的窗口挡住、
+最小化）时自动藏起来；Claude 退出它也退出。
+
+| 浅色主题 | 深色主题 |
+| --- | --- |
+| ![](docs/overlay-light.jpg) | ![](docs/overlay-dark.jpg) |
+
+> 为什么是"盖在上面"而不是真正的背景：Claude Desktop 只要命令行带调试开关就拒绝启动
+> （`refusing to start — a debugging or network-override switch is present`），没法往它的界面里注入样式；
+> 改它的安装文件又会破坏签名、每次更新都会被覆盖。所以退而求其次：盖一层很淡的、鼠标直接穿过去的图。
+
+调深浅：`config.json` 里 `"overlay": { "opacity": 0.18, "brandOpacity": 0.35 }`；不想要：`"overlay": { "enabled": false }`。
+改完 Cmd+Q 退出 Claude 再打开生效。同一张图还有一张完整的桌面壁纸版：`assets/wallpaper.jpg`。
+
 ## 安装（macOS）
 
 需要 [Node.js](https://nodejs.org)（LTS，或 `brew install node`）和已经装好的 Claude Desktop。
@@ -152,6 +169,8 @@ npm run render-preview                 # → docs/ 下的预览 gif 和截图（
 | `text.skip` | `Click to skip` | 右下角的跳过提示；留空就不显示 |
 | `text.hint` / `ready` | `''` | 左下角状态（例如 `Waking Claude up…`）；默认不显示 |
 | `timing.maxWaitMs` | `20000` | 片子放完后最多等 Claude 多久 |
+| `overlay.enabled` | `true` | macOS：动画放完后留下跟着 Claude 窗口走的半透明背景 |
+| `overlay.opacity` / `brandOpacity` | `0.18` / `0.35` | 背景里立绘 / 标志和名字的不透明度 |
 
 ## 开发
 
