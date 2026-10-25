@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -46,3 +46,36 @@ jobs:
           & .\scripts\uninstall.ps1
           if (Test-Path $desk) { throw 'desktop shortcut not removed' }
           if (Test-Path $menu) { throw 'start menu shortcut not removed' }
+      # macOS：窗口探测脚本能跑、安装 / 卸载脚本、后台 watcher 真的会在"Claude"冷启动时拉起动画
+      - name: mac window probe
+        if: runner.os == 'macOS'
+        run: |
+          n=$(osascript -l JavaScript src/mac/window-count.js Finder)
+          echo "Finder windows: $n"
+          [[ "$n" =~ ^[0-9]+$ ]]
+      - name: install-mac.sh / watcher / uninstall-mac.sh
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          FAKE="$RUNNER_TEMP/fkwatch"
+          cp /usr/bin/caffeinate "$FAKE"
+          bash scripts/install-mac.sh --skip-npm --no-watcher --target "$FAKE"
+          test -x "$HOME/Applications/Claude Splash.app/Contents/MacOS/launcher"
+          grep -q fkwatch config.json
+          # 让启动器认假进程，窗口数不到就 1.5 秒后当它出来了
+          node -e 'const f="config.json",c=JSON.parse(require("fs").readFileSync(f));c.claude.processName="fkwatch";c.claude.windowFallbackMs=1500;c.animation={speed:4,sound:false};require("fs").writeFileSync(f,JSON.stringify(c))'
+          LOG="$(node -p 'require("os").tmpdir()')/claude-boot-splash.log"
+          rm -f "$LOG"
+          CLAUDE_SPLASH_PROCESS=fkwatch bash scripts/watch-claude-mac.sh > watcher.log 2>&1 &
+          WATCHER=$!
+          sleep 2
+          "$FAKE" &
+          FAKEPID=$!
+          for i in $(seq 1 40); do grep -q 'quit:' "$LOG" 2>/dev/null && break; sleep 0.5; done
+          cat watcher.log
+          cat "$LOG"
+          kill $WATCHER $FAKEPID || true
+          grep -q 'mode=attach' "$LOG"
+          grep -q 'quit: done:end' "$LOG"
+          bash scripts/uninstall-mac.sh
+          test ! -e "$HOME/Applications/Claude Splash.app"

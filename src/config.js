@@ -19,8 +19,10 @@ const DEFAULT_CONFIG = {
     //   - 应用 ID：shell:AppsFolder\Claude_xxxxx!Claude（Microsoft Store / MSIX 版）
     //   - macOS：应用名 Claude
     target: '',
-    // 用来判断"Claude 的窗口出来了没有"的进程名（不带 .exe）
+    // 用来判断"Claude 的窗口出来了没有"的进程名（不带 .exe；macOS 上不分大小写）
     processName: 'claude',
+    // macOS：进程起来后一直数不到窗口，最多等这么久就当窗口出来了
+    windowFallbackMs: 8000,
   },
   window: {
     // 'fullscreen'：铺满当前屏幕（默认，和 dsh-video-skin 一样的横版全屏）；'card'：屏幕中间一张 16:9 卡片
@@ -107,6 +109,7 @@ function normalize(cfg) {
   cfg.window.scale = clamp(Number(cfg.window.scale) || 0.62, 0.3, 1)
   cfg.animation.volume = clamp(Number(cfg.animation.volume), 0, 1)
   cfg.animation.speed = clamp(Number(cfg.animation.speed) || 1, 0.5, 4)
+  cfg.claude.windowFallbackMs = clamp(Number(cfg.claude.windowFallbackMs) || 0, 500, 60000)
   cfg.voice.atMs = clamp(Number(cfg.voice.atMs) || 0, 0, 20000)
   cfg.voice.rate = clamp(Number(cfg.voice.rate) || 1, 0.5, 2)
   cfg.voice.pitch = clamp(Number(cfg.voice.pitch) || 1, 0, 2)

@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { parseHelperLine, startClaude } = require('../src/claude')
+const { parseHelperLine, startClaude, macLaunchCommand } = require('../src/claude')
 const { DEFAULT_CONFIG, merge } = require('../src/config')
 
 test('helper.ps1 的输出行解析', () => {
@@ -90,4 +90,11 @@ test('POSIX：attach 模式不启动，只等进程', { skip: !posix }, async ()
   setTimeout(() => require('node:child_process').spawn(fake.file, { stdio: 'ignore' }), 300)
   assert.deepEqual(await p, ['attach', 'proc', 'window'])
   execFileSync('pkill', ['-x', fake.name], { stdio: 'ignore' })
+})
+
+test('macOS 启动方式：应用名 / .app 走 open -a，可执行文件直接跑', () => {
+  assert.deepEqual(macLaunchCommand(''), ['open', ['-a', 'Claude']])
+  assert.deepEqual(macLaunchCommand('Claude'), ['open', ['-a', 'Claude']])
+  assert.deepEqual(macLaunchCommand('/Applications/Claude.app'), ['open', ['-a', '/Applications/Claude.app']])
+  assert.deepEqual(macLaunchCommand('/tmp/fake-claude'), ['/tmp/fake-claude', []])
 })
