@@ -13,12 +13,13 @@
  * macOS 上动画放完不退出，接着变成跟着 Claude 窗口走的「背景」覆盖层（src/overlay.js），Claude 退出才退出。
  */
 const { app, BrowserWindow, ipcMain, screen } = require('electron')
+const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
 const { loadConfig, resolveAsset } = require('./config')
-const { startClaude } = require('./claude')
+const { startClaude, macLaunchCommand } = require('./claude')
 const { startOverlay } = require('./overlay')
 
 const APP_DIR = path.join(__dirname, '..')
@@ -41,7 +42,6 @@ const args = parseArgs(process.argv.slice(1))
 // 日志：GUI 程序没有控制台，排查问题看 %TEMP%\claude-boot-splash.log
 const logFile = path.join(os.tmpdir(), 'claude-boot-splash.log')
 const t0 = Date.now()
-try { fs.writeFileSync(logFile, '') } catch {}
 function log(...parts) {
   const line = `[+${String(Date.now() - t0).padStart(5)}ms] ${parts.join(' ')}`
   console.log(line)
@@ -54,7 +54,29 @@ if (!app.requestSingleInstanceLock()) {
   // 已经有一个动画在放了（例如快捷方式启动 + 后台 watcher 同时触发）
   app.quit()
 } else {
+  // 拿到锁才清空日志：第二个实例（马上就会退出）不能把正在跑的那个的日志冲掉
+  try { fs.writeFileSync(logFile, '') } catch {}
   app.whenReady().then(main)
+  // 已经有一个实例在跑（动画，或者 macOS 上一直留着的覆盖层）时又点了快捷方式 / Claude Splash.app：
+  // 新实例拿不到锁会直接退出，这里替它把 Claude 叫到前台，不然点了等于没点
+  app.on('second-instance', (_e, argv) => {
+    if (['--attach', '--overlay', '--preview'].some((f) => argv.includes(f))) return
+    log('second instance: bring Claude to front')
+    focusClaude()
+  })
+}
+
+let currentCfg = null
+
+function focusClaude() {
+  const target = currentCfg ? currentCfg.claude.target : ''
+  let cmd = null
+  if (process.platform === 'darwin') cmd = macLaunchCommand(target)
+  else if (process.platform === 'win32' && target) cmd = target.startsWith('shell:') ? ['explorer.exe', [target]] : [target, []]
+  if (!cmd) return
+  const child = spawn(cmd[0], cmd[1], { detached: true, stdio: 'ignore' })
+  child.on('error', (err) => log('focus failed:', err.message))
+  child.unref()
 }
 
 function windowBounds(cfg) {
@@ -85,6 +107,7 @@ function windowBounds(cfg) {
 
 function main() {
   const cfg = loadConfig(APP_DIR, args.config)
+  currentCfg = cfg
   const mode = args.overlay ? 'overlay' : args.preview ? 'preview' : args.attach ? 'attach' : 'launch'
   log('mode=' + mode, 'platform=' + process.platform, 'window=' + cfg.window.mode)
 

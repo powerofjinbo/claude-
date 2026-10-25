@@ -110,6 +110,22 @@ await scenario('claude missing', ['--config', cfgMissing], ['"type":"missing"', 
   killFake()
 }
 
+// 动画放着的时候又点了一次快捷方式：第二个实例直接退出，第一个把 Claude 叫到前台，日志也不能被冲掉
+{
+  const p = scenario('second instance', ['--preview', '--config', cfg], ['mode=preview', 'second instance: bring Claude to front', 'quit: done:end'])
+  setTimeout(() => {
+    const extra = win || process.platform === 'darwin' ? [] : ['--no-sandbox']
+    let cmd = electron
+    let argv = [...extra, root]
+    if (process.platform === 'linux' && !process.env.DISPLAY) {
+      argv = ['-a', electron, ...argv]
+      cmd = 'xvfb-run'
+    }
+    spawn(cmd, argv, { stdio: 'ignore' })
+  }, 1200)
+  await p
+}
+
 // macOS：覆盖层跟着"Claude"活着，Claude 一退它也退
 if (process.platform === 'darwin') {
   const cfgOverlay = writeConfig('overlay', { claude: { target: fake.file, processName: fake.name }, overlay: { enabled: true } })
