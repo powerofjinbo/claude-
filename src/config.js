@@ -35,15 +35,16 @@ const DEFAULT_CONFIG = {
     // 角色设定图；换图时布局要和原图一致（裁切框按比例取）
     sheet: 'assets/claude-sheet.webp',
     sound: true,
-    volume: 0.55,
+    volume: 0.9,
     // 播放速度：1 ≈ 9 秒；1.5 ≈ 6 秒
     speed: 1,
   },
   voice: {
-    // 启动时说的那句话（只有声音，画面上不出字）
-    enabled: true,
+    // 启动器用系统 TTS 再说一句话。默认关：现在的 boot.mp4（可灵生成）里已经有对好口型的 "Welcome back!"，
+    // 换成没有人声的视频时再打开
+    enabled: false,
     text: 'Welcome back!',
-    // 在动画第几毫秒开口（按 speed 缩放）—— 默认是视频里刚睁开眼的那一刻
+    // 在动画第几毫秒开口（按 speed 缩放）
     atMs: 7150,
     // 非空时播这段录音（mp3/wav/ogg，相对应用目录或绝对路径），不用系统 TTS
     file: '',

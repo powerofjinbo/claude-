@@ -12,11 +12,11 @@
     "video": "assets/boot.mp4",
     "sheet": "assets/claude-sheet.webp",
     "sound": true,
-    "volume": 0.55,
+    "volume": 0.9,
     "speed": 1
   },
   "voice": {
-    "enabled": true,
+    "enabled": false,
     "text": "Welcome back!",
     "atMs": 7150,
     "file": "",

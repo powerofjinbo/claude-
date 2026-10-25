@@ -87,7 +87,7 @@ const cfgMissing = writeConfig('missing', { ...fast, claude: { target: path.join
 
 killFake()
 // preview 带声音跑：Windows 上顺便确认 TTS 真的开口了（日志里有 "voice: <嗓音名>"）
-const cfgVoice = writeConfig('voice', { ...fast, animation: { speed: 4, sound: true } })
+const cfgVoice = writeConfig('voice', { ...fast, animation: { speed: 4, sound: true }, voice: { enabled: true } })
 await scenario('preview', ['--preview', '--config', cfgVoice], ['mode=preview', 'shown', '[splash] animation: video', '"type":"window"', 'quit: done:end', ...(win ? ['[splash] voice:'] : [])])
 await scenario('cold start', ['--config', cfg], ['mode=launch', '"type":"launched"', '"type":"proc"', '"type":"window"', 'leaving: end', 'quit: done:end'])
 await scenario('already running', ['--config', cfg], ['mode=launch', 'quit: already-running'])

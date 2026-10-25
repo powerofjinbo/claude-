@@ -3,7 +3,7 @@
 //
 //   node scripts/render-preview.mjs [--width 1280] [--height 720] [--no-video] [--montage]
 //
-// 默认录的是 boot.mp4 + 叠加文字（Playwright 的 Chromium 不带 H.264，先临时转成 VP9 webm）；
+// 默认录的是 boot.mp4（Playwright 的 Chromium 不带 H.264，先临时转成 VP9 webm）；
 // --montage 录的是视频缺失时的 CSS 备用动画。
 //
 // 需要：playwright（带 chromium）、ffmpeg。
@@ -37,7 +37,7 @@ let videoUrl = ''
 const bootVideo = cfg.animation.video && path.resolve(root, cfg.animation.video)
 if (!montage && bootVideo && fs.existsSync(bootVideo)) {
   const webm = path.join(tmp, 'boot.webm')
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', bootVideo, '-c:v', 'libvpx-vp9', '-b:v', '4M', '-deadline', 'realtime', '-cpu-used', '8', '-c:a', 'libopus', webm])
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', bootVideo, '-c:v', 'libvpx-vp9', '-crf', '24', '-b:v', '0', '-deadline', 'good', '-cpu-used', '4', '-row-mt', '1', '-s', `${width}x${height}`, '-c:a', 'libopus', webm])
   videoUrl = pathToFileURL(webm).href
 }
 const init = {
@@ -74,10 +74,10 @@ await page.evaluate(() => {
 
 const shots = videoUrl
   ? [
-      [2600, 'boot-1-trace'],
-      [4300, 'boot-2-flare'],
-      [6300, 'boot-3-eyes-closed'],
-      [8700, 'boot-4-awake'],
+      [1300, 'boot-1-neon'],
+      [2700, 'boot-2-flare'],
+      [5000, 'boot-3-eyes-closed'],
+      [8600, 'boot-4-awake'],
     ]
   : [
       [700, 'montage-1-spark'],
